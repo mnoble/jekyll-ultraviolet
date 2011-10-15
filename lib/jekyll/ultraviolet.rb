@@ -1,29 +1,39 @@
-require 'uv'
+require "uv"
+require "liquid"
+# Psych can't parse some of the syntax/theme files
+YAML::ENGINE.yamler = "syck"
 
 module Jekyll
   module Ultraviolet
-    class << self; attr_accessor :theme; end
-    
-    def self.initialize
-      @theme = "twilight"
-    end
-    
+    class << self; attr_accessor :theme end
+
     class Block < Liquid::Block
       include Liquid::StandardFilters
-      
+
       def initialize(tag, lang, tokens)
         super
-        @lang = (lang.strip unless lang.empty?) || "ruby"
+        @theme = "twilight"
+        @lang  = lang.strip rescue "ruby"
       end
-      
+
       def render(context)
         output = []
         output << context["pygments_prefix"]
-        output << Uv.parse(super.join, "xhtml", @lang, false, Ultraviolet.theme)
+        output << Uv.parse(remove_leading_spaces(super.join), "xhtml", @lang, false, theme)
         output << context["pygments_suffix"]
         output.join
       rescue LoadError
         raise "Ultraviolet not installed."
+      end
+
+      def remove_leading_spaces(text)
+        padding = text.match(/\n?(\s+)/)[1]
+        return text if padding == "\n"
+        text.each_line.map { |l| l.gsub(/^#{padding}/, "") }.join
+      end
+
+      def theme
+        Jekyll::Ultraviolet.theme || @theme
       end
     end
   end
